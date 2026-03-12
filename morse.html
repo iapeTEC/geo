@@ -15,6 +15,7 @@
 
     * {
       box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
     }
 
     html, body {
@@ -80,7 +81,7 @@
       width: 100%;
       display: flex;
       justify-content: center;
-      margin: 20px 0 24px;
+      margin: 20px 0 8px;
     }
 
     .telegraph {
@@ -215,6 +216,38 @@
       background: var(--fg);
     }
 
+    .mobile-morse-controls {
+      display: none;
+      justify-content: center;
+      gap: 14px;
+      margin: 10px 0 22px;
+    }
+
+    .morse-touch-btn {
+      appearance: none;
+      border: 1.5px solid var(--fg);
+      background: #fff;
+      color: var(--fg);
+      border-radius: 999px;
+      min-width: 108px;
+      height: 52px;
+      padding: 0 20px;
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      transition: transform 0.08s ease, background 0.12s ease, color 0.12s ease;
+      box-shadow: 0 1px 0 rgba(0,0,0,0.04);
+      touch-action: manipulation;
+    }
+
+    .morse-touch-btn:active,
+    .morse-touch-btn.active {
+      background: #111;
+      color: #fff;
+      transform: scale(0.98);
+    }
+
     .display-wrap {
       max-width: 820px;
       margin: 0 auto 24px;
@@ -346,6 +379,12 @@
       }
     }
 
+    @media (max-width: 680px) {
+      .mobile-morse-controls {
+        display: flex;
+      }
+    }
+
     @media (max-width: 520px) {
       .telegraph {
         transform: scale(0.72);
@@ -357,6 +396,25 @@
 
       .display {
         font-size: 20px;
+      }
+
+      .morse-touch-btn {
+        min-width: 116px;
+        height: 54px;
+        font-size: 18px;
+      }
+    }
+
+    @media (max-width: 380px) {
+      .mobile-morse-controls {
+        gap: 10px;
+      }
+
+      .morse-touch-btn {
+        min-width: 98px;
+        height: 50px;
+        font-size: 16px;
+        padding: 0 16px;
       }
     }
   </style>
@@ -391,6 +449,11 @@
       </div>
     </div>
 
+    <div class="mobile-morse-controls">
+      <button id="dotBtn" class="morse-touch-btn" type="button">Ponto</button>
+      <button id="dashBtn" class="morse-touch-btn" type="button">Traço</button>
+    </div>
+
     <div class="display-wrap">
       <div class="display-label">Mensagem em Morse</div>
       <div class="display" id="display"></div>
@@ -421,7 +484,7 @@
 
     <div class="help">
       Cada letra deve ser finalizada com Enter. Entre palavras, use a barra de espaço.
-      Exemplo: para escrever A, digite ponto-traço e pressione Enter.
+      Em celular, use os botões Ponto e Traço e continue usando os controles normais do teclado quando disponível.
     </div>
   </div>
 
@@ -442,6 +505,8 @@
     const clearBtn = document.getElementById('clearBtn');
     const backspaceBtn = document.getElementById('backspaceBtn');
     const sendBtn = document.getElementById('sendBtn');
+    const dotBtn = document.getElementById('dotBtn');
+    const dashBtn = document.getElementById('dashBtn');
 
     let audioCtx = null;
 
@@ -739,6 +804,28 @@
       }
     }
 
+    function bindTouchButton(button, action, activeClassName) {
+      const press = (e) => {
+        e.preventDefault();
+        ensureAudio();
+        button.classList.add('active');
+        action();
+      };
+
+      const release = () => {
+        button.classList.remove('active');
+      };
+
+      button.addEventListener('pointerdown', press);
+      button.addEventListener('pointerup', release);
+      button.addEventListener('pointercancel', release);
+      button.addEventListener('pointerleave', release);
+
+      button.addEventListener('click', (e) => {
+        e.preventDefault();
+      });
+    }
+
     document.addEventListener('click', () => {
       ensureAudio();
     }, { once: true });
@@ -778,6 +865,9 @@
         return;
       }
     });
+
+    bindTouchButton(dotBtn, addDot);
+    bindTouchButton(dashBtn, addDash);
 
     clearBtn.addEventListener('click', clearAll);
     backspaceBtn.addEventListener('click', backspaceAction);
