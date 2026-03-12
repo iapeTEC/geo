@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Painel do Avaliador</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --fg: #111111;
+      --muted: #666666;
+      --line: #dddddd;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: Arial, Helvetica, sans-serif;
+      padding: 24px;
+    }
+
+    .wrap {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 30px;
+    }
+
+    .sub {
+      color: var(--muted);
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid var(--fg);
+      background: #fff;
+      color: var(--fg);
+      border-radius: 999px;
+      padding: 10px 18px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #111;
+      color: #fff;
+    }
+
+    .status {
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .list {
+      display: grid;
+      gap: 16px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 18px;
+      background: #fff;
+    }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .meta {
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .meta strong {
+      font-weight: 700;
+    }
+
+    .time-box {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 14px;
+      min-width: 120px;
+      text-align: center;
+      font-size: 14px;
+    }
+
+    .label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .block {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid #efefef;
+    }
+
+    .morse {
+      font-size: 22px;
+      letter-spacing: 0.08em;
+      line-height: 1.8;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .translated {
+      font-size: 22px;
+      font-weight: 700;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .empty {
+      border: 1px dashed var(--line);
+      border-radius: 16px;
+      padding: 30px;
+      text-align: center;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Painel do Avaliador</h1>
+    <div class="sub">
+      Aqui aparecem as mensagens enviadas pelos alunos, com tempo, código Morse e tradução automática.
+    </div>
+
+    <div class="toolbar">
+      <button id="reloadBtn" type="button">Atualizar</button>
+      <button id="autoBtn" type="button">Autoatualizar: ligado</button>
+      <div class="status" id="status">Carregando...</div>
+    </div>
+
+    <div class="list" id="list"></div>
+  </div>
+
+  <script>
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbwL1TlYAqR4jQHMrYlgFr9mtWCF-uPXGUCA41CZngo--mtGj8B-WEgSN8gbT6Y7Xut1ww/exec';
+
+    const listEl = document.getElementById('list');
+    const statusEl = document.getElementById('status');
+    const reloadBtn = document.getElementById('reloadBtn');
+    const autoBtn = document.getElementById('autoBtn');
+
+    let autoRefresh = true;
+    let intervalId = null;
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function formatDuration(seconds) {
+      const total = Number(seconds || 0);
+      const min = Math.floor(total / 60);
+      const sec = total % 60;
+      return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+    }
+
+    function renderItems(items) {
+      if (!items || !items.length) {
+        listEl.innerHTML = `
+          <div class="empty">
+            Nenhuma mensagem encontrada.
+          </div>
+        `;
+        return;
+      }
+
+      listEl.innerHTML = items.map(item => `
+        <div class="card">
+          <div class="card-top">
+            <div class="meta">
+              <div><strong>Aluno:</strong> ${escapeHtml(item.student_name || '')}</div>
+              <div><strong>Destinatário:</strong> ${escapeHtml(item.recipient_name || '')}</div>
+              <div><strong>Turma:</strong> ${escapeHtml(item.class_name || '')}</div>
+              <div><strong>Enviado em:</strong> ${escapeHtml(item.timestamp || '')}</div>
+            </div>
+
+            <div class="time-box">
+              <div class="label">Tempo</div>
+              <div><strong>${formatDuration(item.duration_seconds)}</strong></div>
+            </div>
+          </div>
+
+          <div class="block">
+            <div class="label">Código Morse</div>
+            <div class="morse">${escapeHtml(item.morse_text || '')}</div>
+          </div>
+
+          <div class="block">
+            <div class="label">Tradução</div>
+            <div class="translated">${escapeHtml(item.translated_text || '')}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function loadData() {
+      statusEl.textContent = 'Carregando...';
+
+      const callbackName = 'jsonpCallback_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+
+      window[callbackName] = function(data) {
+        try {
+          if (!data || !data.ok) {
+            statusEl.textContent = 'Erro ao carregar dados.';
+            listEl.innerHTML = `
+              <div class="empty">
+                Falha ao carregar os dados.
+              </div>
+            `;
+            return;
+          }
+
+          renderItems(data.items || []);
+          statusEl.textContent = `Atualizado. Registros: ${(data.items || []).length}`;
+        } finally {
+          try {
+            delete window[callbackName];
+          } catch (e) {
+            window[callbackName] = undefined;
+          }
+        }
+      };
+
+      const oldScript = document.getElementById('jsonpScript');
+      if (oldScript) oldScript.remove();
+
+      const script = document.createElement('script');
+      script.id = 'jsonpScript';
+      script.src = `${GAS_URL}?mode=list&callback=${callbackName}&_=${Date.now()}`;
+
+      script.onerror = function() {
+        statusEl.textContent = 'Erro ao conectar com o Apps Script.';
+        listEl.innerHTML = `
+          <div class="empty">
+            Não foi possível carregar os dados do avaliador.
+          </div>
+        `;
+        try {
+          delete window[callbackName];
+        } catch (e) {
+          window[callbackName] = undefined;
+        }
+      };
+
+      document.body.appendChild(script);
+    }
+
+    function startAutoRefresh() {
+      stopAutoRefresh();
+      intervalId = setInterval(() => {
+        if (autoRefresh) loadData();
+      }, 5000);
+    }
+
+    function stopAutoRefresh() {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    }
+
+    reloadBtn.addEventListener('click', loadData);
+
+    autoBtn.addEventListener('click', () => {
+      autoRefresh = !autoRefresh;
+      autoBtn.textContent = `Autoatualizar: ${autoRefresh ? 'ligado' : 'desligado'}`;
+    });
+
+    loadData();
+    startAutoRefresh();
+  </script>
+</body>
+</html> 
