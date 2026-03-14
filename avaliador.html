@@ -3,11 +3,6 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
-  <link rel="alternate icon" href="icons/favicon.ico">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" sizes="180x180">
-  <link rel="manifest" href="icons/site.webmanifest">
-  <link rel="mask-icon" href="icons/safari-pinned-tab.svg" color="#0B1D39">
   <title>Painel do Avaliador</title>
   <style>
     :root {
@@ -37,6 +32,11 @@
     h1 {
       margin: 0 0 8px;
       font-size: 30px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 22px;
     }
 
     .sub {
@@ -72,6 +72,64 @@
     .status {
       font-size: 14px;
       color: var(--muted);
+    }
+
+    .ranking {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 18px;
+      background: #fff;
+      margin-bottom: 22px;
+    }
+
+    .ranking-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .ranking-sub {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .ranking-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .ranking-table th,
+    .ranking-table td {
+      text-align: left;
+      padding: 12px 10px;
+      border-top: 1px solid #efefef;
+      font-size: 14px;
+      vertical-align: top;
+    }
+
+    .ranking-table thead th {
+      border-top: none;
+      padding-top: 4px;
+      color: var(--muted);
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: 0.02em;
+    }
+
+    .rank-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 34px;
+      height: 34px;
+      padding: 0 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      font-weight: 700;
     }
 
     .list {
@@ -146,6 +204,35 @@
       text-align: center;
       color: var(--muted);
     }
+
+    @media (max-width: 700px) {
+      .ranking-table thead {
+        display: none;
+      }
+
+      .ranking-table,
+      .ranking-table tbody,
+      .ranking-table tr,
+      .ranking-table td {
+        display: block;
+        width: 100%;
+      }
+
+      .ranking-table tr {
+        border-top: 1px solid #efefef;
+        padding: 10px 0;
+      }
+
+      .ranking-table td {
+        border-top: none;
+        padding: 6px 0;
+      }
+
+      .morse,
+      .translated {
+        font-size: 19px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -161,6 +248,16 @@
       <div class="status" id="status">Carregando...</div>
     </div>
 
+    <section class="ranking" id="rankingBox">
+      <div class="ranking-head">
+        <h2>Ranking de menor tempo</h2>
+        <div class="ranking-sub">Top 10 menores tempos entre todos os envios.</div>
+      </div>
+      <div id="rankingContent">
+        <div class="empty">Nenhum tempo registrado ainda.</div>
+      </div>
+    </section>
+
     <div class="list" id="list"></div>
   </div>
 
@@ -171,6 +268,7 @@
     const statusEl = document.getElementById('status');
     const reloadBtn = document.getElementById('reloadBtn');
     const autoBtn = document.getElementById('autoBtn');
+    const rankingContentEl = document.getElementById('rankingContent');
 
     let autoRefresh = true;
     let intervalId = null;
@@ -189,6 +287,48 @@
       const min = Math.floor(total / 60);
       const sec = total % 60;
       return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+    }
+
+    function renderRanking(items) {
+      const validItems = (items || [])
+        .filter(item => Number.isFinite(Number(item.duration_seconds)) && Number(item.duration_seconds) >= 0)
+        .slice()
+        .sort((a, b) => Number(a.duration_seconds) - Number(b.duration_seconds))
+        .slice(0, 10);
+
+      if (!validItems.length) {
+        rankingContentEl.innerHTML = `
+          <div class="empty">
+            Nenhum tempo registrado ainda.
+          </div>
+        `;
+        return;
+      }
+
+      rankingContentEl.innerHTML = `
+        <table class="ranking-table">
+          <thead>
+            <tr>
+              <th>Posição</th>
+              <th>Equipe</th>
+              <th>Tempo</th>
+              <th>Enviado em</th>
+              <th>Tradução</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${validItems.map((item, index) => `
+              <tr>
+                <td><span class="rank-badge">${index + 1}º</span></td>
+                <td>${escapeHtml(item.class_name || '-')}</td>
+                <td><strong>${formatDuration(item.duration_seconds)}</strong></td>
+                <td>${escapeHtml(item.timestamp || '')}</td>
+                <td>${escapeHtml(item.translated_text || '')}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
     }
 
     function renderItems(items) {
@@ -237,6 +377,11 @@
         try {
           if (!data || !data.ok) {
             statusEl.textContent = 'Erro ao carregar dados.';
+            rankingContentEl.innerHTML = `
+              <div class="empty">
+                Falha ao carregar o ranking.
+              </div>
+            `;
             listEl.innerHTML = `
               <div class="empty">
                 Falha ao carregar os dados.
@@ -245,8 +390,10 @@
             return;
           }
 
-          renderItems(data.items || []);
-          statusEl.textContent = `Atualizado. Registros: ${(data.items || []).length}`;
+          const items = data.items || [];
+          renderRanking(items);
+          renderItems(items);
+          statusEl.textContent = `Atualizado. Registros: ${items.length}`;
         } finally {
           try {
             delete window[callbackName];
@@ -265,6 +412,11 @@
 
       script.onerror = function() {
         statusEl.textContent = 'Erro ao conectar com o Apps Script.';
+        rankingContentEl.innerHTML = `
+          <div class="empty">
+            Não foi possível carregar o ranking.
+          </div>
+        `;
         listEl.innerHTML = `
           <div class="empty">
             Não foi possível carregar os dados do avaliador.
