@@ -147,7 +147,7 @@
   <div class="wrap">
     <h1>Painel do Avaliador</h1>
     <div class="sub">
-      Aqui aparecem as mensagens enviadas pelos alunos, com tempo, código Morse e tradução automática.
+      Aqui aparecem as mensagens enviadas pelas equipes, com tempo, código Morse e tradução automática.
     </div>
 
     <div class="toolbar">
@@ -200,9 +200,7 @@
         <div class="card">
           <div class="card-top">
             <div class="meta">
-              <div><strong>Aluno:</strong> ${escapeHtml(item.student_name || '')}</div>
-              <div><strong>Destinatário:</strong> ${escapeHtml(item.recipient_name || '')}</div>
-              <div><strong>Turma:</strong> ${escapeHtml(item.class_name || '')}</div>
+              <div><strong>Equipe:</strong> ${escapeHtml(item.class_name || '')}</div>
               <div><strong>Enviado em:</strong> ${escapeHtml(item.timestamp || '')}</div>
             </div>
 
@@ -302,4 +300,4 @@
     startAutoRefresh();
   </script>
 </body>
-</html> 
+</html>
